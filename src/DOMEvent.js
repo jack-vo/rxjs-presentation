@@ -2,14 +2,14 @@ import React  from 'react';
 import ReactDOM from 'react-dom';
 import throttle from 'lodash/throttle';
 import { fromEvent } from 'rxjs';
-import { throttleTime, map, filter, flatMap, takeUntil } from 'rxjs/operators';
+import { throttleTime, map , flatMap, takeUntil, distinctUntilChanged } from 'rxjs/operators';
 
 
 // Main code
 const mainCode = () => {
     const mainContainer = document.querySelector('#DOMEvent');
 
-    // RXJS - Click
+    // RXJS - Click - 9 lines
     (() => {
         fromEvent(mainContainer.querySelector('.rxjs-button'), 'click')
             .pipe(
@@ -17,13 +17,12 @@ const mainCode = () => {
                 map(evt => ({
                     x: evt.clientX,
                     y: evt.clientY
-                })),
-                filter(coordination => co)
+                }))
             )
             .subscribe(coordination => console.log(coordination));
     })();
 
-    // Non-RXJS - Click
+    // Non-RXJS - Click - 9 lines
     (() => {
         const button = mainContainer.querySelector('.non-rxjs-button');
         const onButtonClick = throttle((evt) => {
@@ -38,7 +37,7 @@ const mainCode = () => {
         button.addEventListener('click', onButtonClick);
     })();
 
-    // RXJS - Drag drop
+    // RXJS - Drag drop - 23 lines
     (() => {
         const draggableItem = mainContainer.querySelector('.draggable');
         const mousedown = fromEvent(draggableItem, 'mousedown');
@@ -52,13 +51,26 @@ const mainCode = () => {
 
                 return mousemove.pipe(
                     map(mousemoveEvt => {
+                        let left = mousemoveEvt.clientX - startX;
+                        let top = mousemoveEvt.clientY - startY;
+
                         mousemoveEvt.preventDefault();
 
-                        return {
-                            left: mousemoveEvt.clientX - startX,
-                            top: mousemoveEvt.clientY - startY
-                        };
+                        if (left < 0) {
+                            left = 0;
+                        } else if (left + draggableItem.clientWidth > window.innerWidth) {
+                            left = window.innerWidth - draggableItem.clientWidth;
+                        }
+
+                        if (top < 0) {
+                            top = 0;
+                        } else if (top + draggableItem.clientHeight > window.innerHeight) {
+                            top = window.innerHeight - draggableItem.clientHeight;
+                        }
+
+                        return { left, top };
                     }),
+                    distinctUntilChanged((oldPos, newPos) => oldPos.left === newPos.left && oldPos.top === newPos.top),
                     takeUntil(mouseup)
                 );
             })
@@ -68,7 +80,56 @@ const mainCode = () => {
         });
     })();
 
-    // Non-RXJS - dragdrop
+    // Non-RXJS - dragdrop - 24 lines
+    (() => {
+        let dragging = false;
+        let oldPos = {};
+        let startX, startY;
+
+        const draggableItem = mainContainer.querySelector('.non-rxjs-draggable');
+        const mousedown = (e) => {
+            startX = e.offsetX;
+            startY = e.offsetY;
+            dragging = true;
+        };
+        const mousemove = (e) => {
+            if (!dragging) {
+                return;
+            }
+
+            e.preventDefault();
+
+            const newPos = {
+                left: e.clientX - startX,
+                top: e.clientY - startY
+            };
+
+            if (newPos.left < 0) {
+                newPos.left = 0;
+            } else if (newPos.left + draggableItem.clientWidth > window.innerWidth) {
+                newPos.left = window.innerWidth - draggableItem.clientWidth;
+            }
+
+            if (newPos.top < 0) {
+                newPos.top = 0;
+            } else if (newPos.top + draggableItem.clientHeight > window.innerHeight) {
+                newPos.top = window.innerHeight - draggableItem.clientHeight;
+            }
+
+            if (oldPos.left !== newPos.left || oldPos.top !== newPos.top) {
+                draggableItem.style.left = newPos.left + 'px';
+                draggableItem.style.top = newPos.top + 'px';
+                oldPos = newPos;
+            }
+        };
+        const mouseup = () => {
+            dragging = false;
+        };
+
+        draggableItem.addEventListener('mousedown', mousedown);
+        document.addEventListener('mousemove', mousemove);
+        draggableItem.addEventListener('mouseup', mouseup);
+    })();
 };
 
 //============================================
@@ -83,6 +144,7 @@ document
 
 ReactDOM.render(
     <div>
+        <div>= DOM Event ====================================================</div>
         <button type="button" className="rxjs-button">RxJS - click</button>
         <button type="button" className="non-rxjs-button">Non-RxJS - click</button>
         <div className="draggable">
