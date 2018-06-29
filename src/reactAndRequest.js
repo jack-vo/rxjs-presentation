@@ -1,20 +1,17 @@
 import React, { PureComponent } from 'react';
 import ReactDOM from 'react-dom';
-import throttle from 'lodash/throttle';
 import { Subject, from, of } from 'rxjs';
 import { debounceTime, switchMap, distinctUntilChanged, catchError } from 'rxjs/operators';
 
 
 // Main code
 class SearchService {
-    constructor() {
+    constructor(options) {
         this.searchSubject = new Subject();
     }
 
-    search(query, options = { limit: 10 }) {
-        const url = `https://itunes.apple.com/search?term=${query}&entity=album&limit=${options.limit}`;
-
-        this.searchSubject.next(url);
+    search(query) {
+        this.searchSubject.next(query);
     }
 
     getResults() {
@@ -22,10 +19,10 @@ class SearchService {
             debounceTime(400),
             distinctUntilChanged(),
             // Cancellation happening here
-            switchMap(url => {
-                if (url) {
+            switchMap(query => {
+                if (query) {
                     return from(
-                        fetch(url)
+                        fetch(`https://itunes.apple.com/search?term=${query}&entity=album&limit=20`)
                             .then(res => res.json())
                     );
                 }
@@ -58,7 +55,7 @@ class ItunesSearch extends PureComponent {
     }
 
     search(query) {
-        this.searchService.search(query.trim(), { limit: 10 });
+        this.searchService.search(query.trim());
     }
 
     render() {

@@ -13,11 +13,11 @@ const mainCode = () => {
     (() => {
         fromEvent(mainContainer.querySelector('.rxjs-button'), 'click')
             .pipe(
-                throttleTime(400),
+                throttleTime(400), //1st block
                 map(evt => ({
                     x: evt.clientX,
                     y: evt.clientY
-                }))
+                })) //2nd block
             )
             .subscribe(coordination => console.log(coordination));
     })();
